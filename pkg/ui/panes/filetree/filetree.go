@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dlvhdr/diffnav/pkg/ripgrep"
+
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,9 +20,19 @@ import (
 
 type Model struct {
 	files        []*gitdiff.File
+	rgMatches    []*ripgrep.MatchObject
 	tree         *tree.Tree
 	vp           viewport.Model
 	selectedFile *string
+}
+
+func (m Model) SetFilesRipGrep(rgMatches []*ripgrep.MatchObject) Model {
+	m.rgMatches = rgMatches
+	t := buildFullFileTreeRipGrep(rgMatches)
+	collapsed := collapseTree(t)
+	m.tree, _ = truncateTree(collapsed, 0, 0, 0)
+	m.vp.SetContent(m.printWithoutRoot())
+	return m
 }
 
 func (m Model) SetFiles(files []*gitdiff.File) Model {
@@ -154,6 +166,12 @@ func normalizeDepth(node *tree.Tree, depth int) *tree.Tree {
 			t.Child(child)
 		}
 	}
+	return t
+}
+
+func buildFullFileTreeRipGrep(rgMatches []*ripgrep.MatchObject) *tree.Tree {
+	t := tree.Root(".")
+
 	return t
 }
 

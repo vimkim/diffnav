@@ -15,6 +15,7 @@ import (
 
 	"github.com/dlvhdr/diffnav/pkg/constants"
 	"github.com/dlvhdr/diffnav/pkg/filenode"
+	"github.com/dlvhdr/diffnav/pkg/ripgrep"
 	"github.com/dlvhdr/diffnav/pkg/ui/common"
 	"github.com/dlvhdr/diffnav/pkg/ui/panes/diffviewer"
 	"github.com/dlvhdr/diffnav/pkg/ui/panes/filetree"
@@ -30,6 +31,7 @@ const (
 type mainModel struct {
 	input             string
 	files             []*gitdiff.File
+	rgMatches         []*ripgrep.MatchObject
 	cursor            int
 	fileTree          filetree.Model
 	diffViewer        diffviewer.Model
@@ -75,7 +77,8 @@ func New(input string) mainModel {
 }
 
 func (m mainModel) Init() tea.Cmd {
-	return tea.Batch(tea.EnterAltScreen, m.fetchFileTree, m.diffViewer.Init())
+	// return tea.Batch(tea.EnterAltScreen, m.fetchFileTree, m.diffViewer.Init())
+	return tea.Batch(tea.EnterAltScreen, m.fetchFileTreeRipGrep, m.diffViewer.Init())
 }
 
 func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -125,6 +128,15 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, dfCmd)
 			ftCmd := m.fileTree.SetSize(m.sidebarWidth(), m.height-footerHeight-headerHeight-searchHeight)
 			cmds = append(cmds, ftCmd)
+
+		case ripgrepTreeMsg:
+			m.rgMatches = msg.rgMatches
+			if len(m.rgMatches) == 0 {
+				return m, tea.Quit
+			}
+			m.fileTree = m.fileTree.SetFilesRipGrep(m.rgMatches)
+			// cmd = m.setCursor(0)
+			cmds = append(cmds, cmd)
 
 		case fileTreeMsg:
 			m.files = msg.files
@@ -251,8 +263,23 @@ func (m mainModel) View() string {
 	)
 }
 
+type ripgrepTreeMsg struct {
+	rgMatches []*ripgrep.MatchObject
+}
+
 type fileTreeMsg struct {
 	files []*gitdiff.File
+}
+
+func (m mainModel) fetchFileTreeRipGrep() tea.Msg {
+	// TODO: handle error
+	rgMatches, err := ripgrep.Parse(strings.NewReader(m.input + "\n"))
+	if err != nil {
+		return common.ErrMsg{Err: err}
+	}
+	// sortFiles(files)
+
+	return ripgrepTreeMsg{rgMatches: rgMatches}
 }
 
 func (m mainModel) fetchFileTree() tea.Msg {
@@ -273,7 +300,6 @@ func (m mainModel) footerView() string {
 		BorderForeground(lipgloss.Color("8")).
 		Height(1).
 		Render(m.help.ShortHelpView(getKeys()))
-
 }
 
 func (m mainModel) resultsView() string {

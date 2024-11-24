@@ -117,20 +117,28 @@ func diff(file *gitdiff.File, width int) tea.Cmd {
 		return nil
 	}
 	return func() tea.Msg {
-		sideBySide := !file.IsNew && !file.IsDelete
-		args := []string{"--paging=never", fmt.Sprintf("-w=%d", width)}
-		if sideBySide {
-			args = append(args, "--side-by-side")
-		}
-		deltac := exec.Command("delta", args...)
-		deltac.Env = os.Environ()
-		deltac.Stdin = strings.NewReader(file.String() + "\n")
-		out, err := deltac.Output()
+		// sideBySide := !file.IsNew && !file.IsDelete
+		// args := []string{"--paging=never", fmt.Sprintf("-w=%d", width)}
+		// if sideBySide {
+		// 	args = append(args, "--side-by-side")
+		// }
+		// deltac := exec.Command("delta", args...)
+		// deltac.Env = os.Environ()
+		// deltac.Stdin = strings.NewReader(file.String() + "\n")
+		// out, err := deltac.Output()
+		// if err != nil {
+		// 	return common.ErrMsg{Err: err}
+		// }
 
+		rgc := exec.Command("bat")
+		rgc.Env = os.Environ()
+		rgc.Stdin = strings.NewReader(file.String() + "\n")
+		out, err := rgc.Output()
 		if err != nil {
 			return common.ErrMsg{Err: err}
 		}
 
+		// TODO: if I change this part, it appears on the right pane.
 		return diffContentMsg{text: string(out)}
 	}
 }
