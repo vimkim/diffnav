@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"time"
@@ -17,15 +15,15 @@ import (
 )
 
 func main() {
-	stat, err := os.Stdin.Stat()
-	if err != nil {
-		panic(err)
-	}
+	// stat, err := os.Stdin.Stat()
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	if stat.Mode()&os.ModeNamedPipe == 0 && stat.Size() == 0 {
-		fmt.Println("No diff, exiting")
-		os.Exit(0)
-	}
+	// if stat.Mode()&os.ModeNamedPipe == 0 && stat.Size() == 0 {
+	// 	fmt.Println("No diff, exiting")
+	// 	os.Exit(0)
+	// }
 
 	if os.Getenv("DEBUG") == "true" {
 		var fileErr error
@@ -53,22 +51,44 @@ func main() {
 		}
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-	var b strings.Builder
+	// reader := bufio.NewReader(os.Stdin)
+	// var b strings.Builder
+	//
+	// for {
+	// 	r, _, err := reader.ReadRune()
+	// 	if err != nil && err == io.EOF {
+	// 		break
+	// 	}
+	// 	_, err = b.WriteRune(r)
+	// 	if err != nil {
+	// 		fmt.Println("Error getting input:", err)
+	// 		os.Exit(1)
+	// 	}
+	// }
 
-	for {
-		r, _, err := reader.ReadRune()
-		if err != nil && err == io.EOF {
-			break
-		}
-		_, err = b.WriteRune(r)
-		if err != nil {
-			fmt.Println("Error getting input:", err)
-			os.Exit(1)
-		}
+	// file, err := os.Open("diff.diff")
+	file, err := os.Open("rg.rg")
+	if err != nil {
+		fmt.Printf("Error opening file: %v\n", err)
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	fileStat, err := file.Stat()
+	if err != nil {
+		fmt.Printf("error getting file stats: %v\n", err)
+		os.Exit(1)
 	}
 
-	input := ansi.Strip(b.String())
+	if fileStat.Size() == 0 {
+		fmt.Println("File is empty, exiting")
+		os.Exit(0)
+	}
+
+	content := make([]byte, fileStat.Size())
+	_, err = file.Read(content)
+
+	input := ansi.Strip(string(content))
 	if strings.TrimSpace(input) == "" {
 		fmt.Println("No input provided, exiting")
 		os.Exit(0)
