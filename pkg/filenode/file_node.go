@@ -9,8 +9,19 @@ import (
 	"github.com/charmbracelet/lipgloss/tree"
 
 	"github.com/dlvhdr/diffnav/pkg/constants"
+	"github.com/dlvhdr/diffnav/pkg/ripgrep"
 	"github.com/dlvhdr/diffnav/pkg/utils"
 )
+
+type RgMatchNode struct {
+	RgMatch *ripgrep.MatchObject
+	Depth   int
+	YOffset int
+}
+
+func (f RgMatchNode) Path() string {
+	return f.RgMatch.Path
+}
 
 type FileNode struct {
 	File    *gitdiff.File

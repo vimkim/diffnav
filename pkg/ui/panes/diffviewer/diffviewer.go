@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/dlvhdr/diffnav/pkg/ripgrep"
 	"github.com/dlvhdr/diffnav/pkg/ui/common"
 )
 
@@ -19,9 +20,10 @@ const dirHeaderHeight = 3
 
 type Model struct {
 	common.Common
-	vp     viewport.Model
-	buffer *bytes.Buffer
-	file   *gitdiff.File
+	vp      viewport.Model
+	buffer  *bytes.Buffer
+	file    *gitdiff.File
+	rgMatch *ripgrep.MatchObject
 }
 
 func New() Model {
@@ -106,10 +108,34 @@ func (m Model) headerView() string {
 		Render(lipgloss.JoinVertical(lipgloss.Left, top, bottom))
 }
 
+func (m Model) SetRipGrepPatch(rgMatch *ripgrep.MatchObject) (Model, tea.Cmd) {
+	m.buffer = new(bytes.Buffer)
+	m.rgMatch = rgMatch
+	return m, rgCat(m.rgMatch, m.Width)
+}
+
 func (m Model) SetFilePatch(file *gitdiff.File) (Model, tea.Cmd) {
 	m.buffer = new(bytes.Buffer)
 	m.file = file
 	return m, diff(m.file, m.Width)
+}
+
+func rgCat(rgMatch *ripgrep.MatchObject, width int) tea.Cmd {
+	if width == 0 || rgMatch == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		rgc := exec.Command("bat")
+		rgc.Env = os.Environ()
+		// rgc.Stdin = strings.NewReader(rgMatch.String() + "\n")
+		out, err := rgc.Output()
+		if err != nil {
+			return common.ErrMsg{Err: err}
+		}
+
+		// TODO: if I change this part, it appears on the right pane.
+		return diffContentMsg{text: string(out)}
+	}
 }
 
 func diff(file *gitdiff.File, width int) tea.Cmd {
@@ -117,23 +143,15 @@ func diff(file *gitdiff.File, width int) tea.Cmd {
 		return nil
 	}
 	return func() tea.Msg {
-		// sideBySide := !file.IsNew && !file.IsDelete
-		// args := []string{"--paging=never", fmt.Sprintf("-w=%d", width)}
-		// if sideBySide {
-		// 	args = append(args, "--side-by-side")
-		// }
-		// deltac := exec.Command("delta", args...)
-		// deltac.Env = os.Environ()
-		// deltac.Stdin = strings.NewReader(file.String() + "\n")
-		// out, err := deltac.Output()
-		// if err != nil {
-		// 	return common.ErrMsg{Err: err}
-		// }
-
-		rgc := exec.Command("bat")
-		rgc.Env = os.Environ()
-		rgc.Stdin = strings.NewReader(file.String() + "\n")
-		out, err := rgc.Output()
+		sideBySide := !file.IsNew && !file.IsDelete
+		args := []string{"--paging=never", fmt.Sprintf("-w=%d", width)}
+		if sideBySide {
+			args = append(args, "--side-by-side")
+		}
+		deltac := exec.Command("delta", args...)
+		deltac.Env = os.Environ()
+		deltac.Stdin = strings.NewReader(file.String() + "\n")
+		out, err := deltac.Output()
 		if err != nil {
 			return common.ErrMsg{Err: err}
 		}

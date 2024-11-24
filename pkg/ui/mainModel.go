@@ -135,7 +135,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			m.fileTree = m.fileTree.SetFilesRipGrep(m.rgMatches)
-			// cmd = m.setCursor(0)
+			cmd = m.setRgCursor(0)
 			cmds = append(cmds, cmd)
 
 		case fileTreeMsg:
@@ -330,6 +330,14 @@ func (m *mainModel) stopSearch() {
 	m.search.SetValue("")
 	m.search.Blur()
 	m.search.Width = m.sidebarWidth() - 5
+}
+
+func (m *mainModel) setRgCursor(cursor int) tea.Cmd {
+	var cmd tea.Cmd
+	m.cursor = cursor
+	m.diffViewer, cmd = m.diffViewer.SetRipGrepPatch(m.rgMatches[m.cursor])
+	m.fileTree = m.fileTree.SetCursor(m.cursor)
+	return cmd
 }
 
 func (m *mainModel) setCursor(cursor int) tea.Cmd {

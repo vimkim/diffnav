@@ -1,18 +1,18 @@
 package filetree
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/dlvhdr/diffnav/pkg/ripgrep"
-
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/dlvhdr/diffnav/pkg/ripgrep"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/tree"
-
 	"github.com/dlvhdr/diffnav/pkg/constants"
 	"github.com/dlvhdr/diffnav/pkg/filenode"
 	"github.com/dlvhdr/diffnav/pkg/utils"
@@ -171,6 +171,51 @@ func normalizeDepth(node *tree.Tree, depth int) *tree.Tree {
 
 func buildFullFileTreeRipGrep(rgMatches []*ripgrep.MatchObject) *tree.Tree {
 	t := tree.Root(".")
+
+	for _, rgMatch := range rgMatches {
+		subTree := t
+
+		lineNum := rgMatch.LineNumber
+		fullPath := rgMatch.Path
+		parts := strings.Split(fullPath, string(os.PathSeparator))
+		path := ""
+		// walk the tree to find existing path
+		for _, part := range parts {
+			found := false
+			for j := 0; j < subTree.Children().Length(); j++ {
+				child := subTree.Children().At(j)
+				if child.Value() == part {
+					switch child := child.(type) {
+					case *tree.Tree:
+						subTree = child
+					}
+					path = path + part + string(os.PathSeparator)
+					found = true
+					break
+				}
+			}
+			if !found {
+				break
+			}
+		}
+
+		// path does not exist from this point, need to creat it
+		leftover, err := filepath.Rel(path, fullPath+string(os.PathSeparator)+fmt.Sprint(lineNum))
+		if err != nil {
+			panic("why error here?")
+		}
+		parts = strings.Split(leftover, string(os.PathSeparator))
+		for i, part := range parts {
+			var c *tree.Tree
+			if i == len(parts)-1 {
+				subTree.Child(filenode.RgMatchNode{RgMatch: rgMatch})
+			} else {
+				c = tree.Root(part)
+				subTree.Child(c)
+				subTree = c
+			}
+		}
+	}
 
 	return t
 }
